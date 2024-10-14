@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict
 
-from utils import get_user_settings, process_transactions, read_excel_data
+from .utils import get_user_settings, process_transactions, read_excel_data
 
 
 def main() -> None:

@@ -91,7 +91,7 @@ def process_transactions(
     elif period == "Y":
         start_date = target_date.replace(month=1, day=1)
         end_date = target_date
-    else:  # ALL
+    else:
         start_date = datetime.min
         end_date = target_date
 
@@ -128,8 +128,8 @@ def process_transactions(
         filtered_data[filtered_data["Тип"] == "Расход"]
         .groupby("Категория")["Сумма"]
         .sum()
-        .reindex(["Наличные", "Переводы"])  # Используйте reindex для избежания ошибок
-        .fillna(0)  # Заполните отсутствующие значения нулями
+        .reindex(["Наличные", "Переводы"])
+        .fillna(0)
         .reset_index()
     )
 
