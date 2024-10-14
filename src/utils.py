@@ -35,15 +35,26 @@ def get_user_settings(settings_path: str) -> Dict[str, List[str]]:
 def fetch_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
     """Получение курсов валют с API."""
     url = "https://api.exchangeratesapi.io/latest?base=EUR"
-    response = requests.get(url)
-    data = response.json()
 
-    rates = []
-    for currency in currencies:
-        if currency in data["rates"]:
-            rates.append({"currency": currency, "rate": data["rates"][currency]})
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Проверка на ошибки HTTP
+        data = response.json()
 
-    return rates
+        # Проверка наличия ключа 'rates'
+        if "rates" not in data:
+            print("Ключ 'rates' отсутствует в ответе API.")
+            return []
+
+        rates = []
+        for currency in currencies:
+            if currency in data["rates"]:
+                rates.append({"currency": currency, "rate": data["rates"][currency]})
+
+        return rates
+    except requests.RequestException as e:
+        print(f"Ошибка при получении курсов валют: {e}")
+        return []
 
 
 def fetch_stock_prices(stocks: List[str]) -> List[Dict[str, float]]:
@@ -63,6 +74,12 @@ def process_transactions(
 ) -> Dict[str, Any]:
     """Обработка транзакций и генерация JSON ответа."""
 
+    # Проверка наличия необходимых столбцов
+    required_columns = ["Дата операции", "Тип", "Сумма", "Категория"]
+    for column in required_columns:
+        if column not in data.columns:
+            raise ValueError(f"Отсутствует необходимый столбец: {column}")
+
     target_date = datetime.strptime(input_date, "%Y-%m-%d %H:%M:%S")
 
     if period == "W":
@@ -80,6 +97,15 @@ def process_transactions(
 
     filtered_data = data[(data["Дата операции"] >= start_date) & (data["Дата операции"] <= end_date)]
 
+    # Проверка на наличие строк после фильтрации
+    if filtered_data.empty:
+        return {
+            "expenses": {"total_amount": 0, "main": [], "transfers_and_cash": []},
+            "income": {"total_amount": 0, "main": []},
+            "currency_rates": [],
+            "stock_prices": [],
+        }
+
     expenses_total = round(filtered_data[filtered_data["Тип"] == "Расход"]["Сумма"].sum())
 
     expenses_by_category = (
@@ -91,6 +117,7 @@ def process_transactions(
     )
 
     main_expenses = expenses_by_category.head(7)
+
     other_expenses_sum = expenses_by_category.iloc[7:]["Сумма"].sum()
 
     if other_expenses_sum > 0:
@@ -101,7 +128,8 @@ def process_transactions(
         filtered_data[filtered_data["Тип"] == "Расход"]
         .groupby("Категория")["Сумма"]
         .sum()
-        .loc[["Наличные", "Переводы"]]
+        .reindex(["Наличные", "Переводы"])  # Используйте reindex для избежания ошибок
+        .fillna(0)  # Заполните отсутствующие значения нулями
         .reset_index()
     )
 
@@ -123,6 +151,7 @@ def process_transactions(
         },
         "income": {"total_amount": income_total, "main": income_by_category.to_dict(orient="records")},
         "currency_rates": fetch_currency_rates(user_settings.get("user_currencies", [])),
+        # Предполагается, что fetch_stock_prices также определена в вашем коде.
         "stock_prices": fetch_stock_prices(user_settings.get("user_stocks", [])),
     }
 
