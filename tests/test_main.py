@@ -55,12 +55,15 @@ def test_main(
     mock_get_user_settings.return_value = mock_user_settings
     mock_process_transactions.return_value = expected_total
 
-    # Вызов основной функции
-    main()
+    # Вызов основной функции с параметрами из теста
+    with patch("builtins.input", side_effect=[input_date, period_input]):
+        main()
 
     # Проверка вызовов моков
     mock_read_excel_data.assert_called_once_with("../data/operations.xls")
     mock_get_user_settings.assert_called_once_with("../user_settings.json")
+
+    # Проверка правильных параметров для process_transactions
     mock_process_transactions.assert_called_once_with(mock_excel_data, input_date, period_input, mock_user_settings)
 
     # Проверка корректности вывода в print
