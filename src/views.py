@@ -15,13 +15,8 @@ def generate_greeting(current_time: datetime) -> str:
         return "Добрый вечер"
 
 
-def prepare_response(
-    greeting: str,
-    cards_info: List[Dict[str, float]],
-    top_transactions: List[Dict[str, float]],
-    currency_rates: List[Dict[str, float]],
-    stock_prices: List[Dict[str, float]],
-) -> Dict[str, Any]:
+def prepare_response(greeting: str, cards_info: List[Dict[str, float]], top_transactions: List[Dict[str, float]],
+                     currency_rates: List[Dict[str, float]], stock_prices: List[Dict[str, float]]) -> Dict[str, Any]:
     """Формирование JSON ответа."""
     return {
         "greeting": greeting,
