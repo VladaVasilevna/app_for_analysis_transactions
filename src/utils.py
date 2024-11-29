@@ -1,158 +1,79 @@
-import json
+import logging
 import os
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
+from dotenv import load_dotenv
 
-API_TOKEN = os.getenv("API_TOKEN")
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+
+# Загрузка переменных окружения из файла .env
+load_dotenv()
+API_TOKEN: Optional[str] = os.getenv("API_TOKEN")  # Получаем API токен для валют
+API_KEY: Optional[str] = os.getenv("API_KEY")  # Получаем API ключ для акций
+
+# Проверка наличия токена
+if API_TOKEN is None:
+    raise ValueError("API_TOKEN не установлен. Проверьте файл .env.")
+
+if API_KEY is None:
+    raise ValueError("API_KEY не установлен. Проверьте файл .env.")
 
 
-def read_excel_data(file_path: str) -> pd.DataFrame:
-    """Чтение данных из Excel файла."""
-    return pd.read_excel(file_path)
-
-
-def get_user_settings(settings_path: str) -> Dict[str, List[str]]:
-    """Получение пользовательских настроек из JSON файла."""
+def read_excel_data(file_path: str) -> Optional[pd.DataFrame]:
+    """Читает данные из XLSX файла и возвращает DataFrame или None."""
     try:
-        with open(settings_path, "r", encoding="utf-8") as f:
-            settings = json.load(f)
-
-        if not isinstance(settings, dict):
-            raise ValueError("Настройки должны быть словарём.")
-
-        for key, value in settings.items():
-            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-                raise ValueError(f"Значение для ключа '{key}' должно быть списком строк.")
-
-        return settings
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        raise ValueError(f"Ошибка при чтении настроек: {e}")
+        df = pd.read_excel(file_path)
+        return df
+    except Exception as e:
+        logging.error(f"Ошибка при чтении файла: {e}")
+        return None
 
 
-def fetch_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
-    """Получение курсов валют с API."""
-    url = "https://api.exchangeratesapi.io/latest?base=EUR"
+def get_currency_rates(user_currencies: List[str]) -> List[Dict[str, Any]]:
+    """Получает курсы валют через APIlayer."""
+    rates = []
+    api_url = "https://api.apilayer.com/exchangerates_data/latest"
+    headers = {"apikey": API_TOKEN}
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Проверка на ошибки HTTP
+    response = requests.get(api_url, headers=headers)
+    if response.status_code == 200:
         data = response.json()
-
-        # Проверка наличия ключа 'rates'
-        if "rates" not in data:
-            print("Ключ 'rates' отсутствует в ответе API.")
-            return []
-
-        rates = []
-        for currency in currencies:
+        for currency in user_currencies:
             if currency in data["rates"]:
                 rates.append({"currency": currency, "rate": data["rates"][currency]})
+    else:
+        logging.error("Ошибка при получении курсов валют.")
 
-        return rates
-    except requests.RequestException as e:
-        print(f"Ошибка при получении курсов валют: {e}")
-        return []
+    return rates
 
 
-def fetch_stock_prices(stocks: List[str]) -> List[Dict[str, float]]:
-    """Получение цен акций из API."""
+def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
+    """Получает цены акций с использованием Marketstack."""
     stock_prices = []
 
+    url = "https://api.marketstack.com/v1/intraday"
+
     for stock in stocks:
-        response = requests.get(f"https://api.example.com/stocks/{stock}?token={API_TOKEN}")
-        stock_data = response.json()
-        stock_prices.append({"stock": stock, "price": stock_data["price"]})
+        querystring = {"access_key": API_KEY, "symbols": stock}
+
+        try:
+            response = requests.get(url, params=querystring)
+            response.raise_for_status()
+
+            stock_data = response.json()
+            if "data" in stock_data and len(stock_data["data"]) > 0:
+                last_price = stock_data["data"][0]["last"]
+                if last_price is not None:
+                    stock_prices.append({"stock": stock, "price": float(last_price)})
+                else:
+                    logging.error(f"Цена для акции {stock} равна None.")
+            else:
+                logging.error(f"Нет данных для акции {stock}.")
+
+        except requests.RequestException as e:
+            logging.error(f"Ошибка при получении данных для {stock}: {e}")
 
     return stock_prices
-
-
-def process_transactions(
-    data: pd.DataFrame, input_date: str, period: str, user_settings: Dict[str, List[str]]
-) -> Dict[str, Any]:
-    """Обработка транзакций и генерация JSON ответа."""
-
-    # Проверка наличия необходимых столбцов
-    required_columns = ["Дата операции", "Тип", "Сумма", "Категория"]
-    for column in required_columns:
-        if column not in data.columns:
-            raise ValueError(f"Отсутствует необходимый столбец: {column}")
-
-    target_date = datetime.strptime(input_date, "%Y-%m-%d %H:%M:%S")
-
-    if period == "W":
-        start_date = target_date - timedelta(days=target_date.weekday())
-        end_date = target_date
-    elif period == "M":
-        start_date = target_date.replace(day=1)
-        end_date = target_date
-    elif period == "Y":
-        start_date = target_date.replace(month=1, day=1)
-        end_date = target_date
-    else:
-        start_date = datetime.min
-        end_date = target_date
-
-    filtered_data = data[(data["Дата операции"] >= start_date) & (data["Дата операции"] <= end_date)]
-
-    # Проверка на наличие строк после фильтрации
-    if filtered_data.empty:
-        return {
-            "expenses": {"total_amount": 0, "main": [], "transfers_and_cash": []},
-            "income": {"total_amount": 0, "main": []},
-            "currency_rates": [],
-            "stock_prices": [],
-        }
-
-    expenses_total = round(filtered_data[filtered_data["Тип"] == "Расход"]["Сумма"].sum())
-
-    expenses_by_category = (
-        filtered_data[filtered_data["Тип"] == "Расход"]
-        .groupby("Категория")["Сумма"]
-        .sum()
-        .reset_index()
-        .sort_values(by="Сумма", ascending=False)
-    )
-
-    main_expenses = expenses_by_category.head(7)
-
-    other_expenses_sum = expenses_by_category.iloc[7:]["Сумма"].sum()
-
-    if other_expenses_sum > 0:
-        other_expenses_df = pd.DataFrame([{"Категория": "Остальное", "Сумма": other_expenses_sum}])
-        main_expenses = pd.concat([main_expenses, other_expenses_df], ignore_index=True)
-
-    transfers_and_cash = (
-        filtered_data[filtered_data["Тип"] == "Расход"]
-        .groupby("Категория")["Сумма"]
-        .sum()
-        .reindex(["Наличные", "Переводы"])
-        .fillna(0)
-        .reset_index()
-    )
-
-    income_total = round(filtered_data[filtered_data["Тип"] == "Поступление"]["Сумма"].sum())
-
-    income_by_category = (
-        filtered_data[filtered_data["Тип"] == "Поступление"]
-        .groupby("Категория")["Сумма"]
-        .sum()
-        .reset_index()
-        .sort_values(by="Сумма", ascending=False)
-    )
-
-    response_json: Dict[str, Any] = {
-        "expenses": {
-            "total_amount": expenses_total,
-            "main": main_expenses.to_dict(orient="records"),
-            "transfers_and_cash": transfers_and_cash.to_dict(orient="records"),
-        },
-        "income": {"total_amount": income_total, "main": income_by_category.to_dict(orient="records")},
-        "currency_rates": fetch_currency_rates(user_settings.get("user_currencies", [])),
-        # Предполагается, что fetch_stock_prices также определена в вашем коде.
-        "stock_prices": fetch_stock_prices(user_settings.get("user_stocks", [])),
-    }
-
-    return response_json
