@@ -16,6 +16,8 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
     month_start = datetime.strptime(month, "%Y-%m")
     next_month = (month_start.replace(day=1) + pd.DateOffset(months=1)).replace(day=1)
 
+    logging.info(f"Округляем транзакции до {limit} в Инвесткопилку")
+
     for transaction in transactions:
         transaction_date_str = transaction.get("Дата операции")
         transaction_amount = transaction.get("Сумма операции")
@@ -32,9 +34,5 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
                 rounded_amount = ((transaction_amount // limit) + 1) * limit
                 saved_amount = rounded_amount - transaction_amount
                 total_saved += saved_amount
-
-                logging.info(
-                    f"Транзакция: {transaction_amount}, Округлено: {rounded_amount}, Сбережения: {saved_amount}"
-                )
 
     return total_saved
