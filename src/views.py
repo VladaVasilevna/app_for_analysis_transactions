@@ -38,8 +38,8 @@ def generate_response(date_str: str, user_settings: Dict[str, Any]) -> Dict[str,
             filtered_df.groupby("Номер карты")
             .agg(
                 last_digits=("Номер карты", "first"),
-                total_spent=("Сумма операции с округлением", lambda x: round(x.sum(), 2)),
-                cashback=("Сумма операции с округлением", lambda x: round(x.sum() * 0.01, 2)),
+                total_spent=("Сумма операции", lambda x: round(x.abs().sum(), 2)),
+                cashback=("Сумма операции", lambda x: round(x.abs().sum() * 0.01, 2)),
             )
             .reset_index()
         )

@@ -66,7 +66,7 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
             stock_data = response.json()
             if "data" in stock_data and len(stock_data["data"]) > 0:
                 last_price = stock_data["data"][0]["last"]
-                if last_price is not None:  # Проверка на None
+                if last_price is not None:
                     stock_prices.append({"stock": stock, "price": float(last_price)})
                 else:
                     logging.error(f"Цена для акции {stock} равна None.")

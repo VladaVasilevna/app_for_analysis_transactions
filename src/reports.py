@@ -15,7 +15,7 @@ def report_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         result = func(*args, **kwargs)
         # Генерация имени файла на основе текущей даты и времени
-        filename = f"spending_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"spending_report_{datetime.now().strftime('%d%m%Y_%H%M%S')}.json"
         # Запись результата в файл
         try:
             with open(filename, "w", encoding="utf-8") as f:
@@ -50,7 +50,7 @@ def report_decorator_with_filename(filename: str) -> Callable[[Callable[..., Any
 
 @report_decorator
 def spending_by_category(transactions: pd.DataFrame, category: str, date: Optional[str] = None) -> Dict[str, Any]:
-    """Возвращает траты по заданной категории за последние три месяца."""
+    """Возвращает траты по заданной категории за последние три месяца от заданной даты."""
 
     # Установка текущей даты, если дата не передана
     if date is None:
@@ -59,7 +59,12 @@ def spending_by_category(transactions: pd.DataFrame, category: str, date: Option
     # Преобразование строки даты в объект datetime
     current_date = datetime.strptime(date, "%Y-%m-%d")
 
-    # Определение даты начала периода (3 месяца назад)
+    # Преобразование столбца 'Дата операции' в формат datetime
+    transactions["Дата операции"] = pd.to_datetime(
+        transactions["Дата операции"], format="%d.%m.%Y %H:%M:%S", errors="coerce"
+    )
+
+    # Определение даты начала периода (3 месяца назад от переданной даты)
     start_date = current_date - timedelta(days=90)
 
     # Фильтрация транзакций по категории и дате
@@ -69,14 +74,28 @@ def spending_by_category(transactions: pd.DataFrame, category: str, date: Option
         & (transactions["Дата операции"] <= current_date)
     ]
 
+    # Логирование информации о фильтрации
+    logging.info(f"Фильтрация по категории: {category}, диапазон дат: {start_date} - {current_date}")
+
+    # Проверка на наличие отфильтрованных транзакций
+    if filtered_transactions.empty:
+        return {
+            "category": category,
+            "total_spent": 0.0,
+            "date_range": {
+                "start_date": start_date.strftime("%d.%m.%Y"),
+                "end_date": current_date.strftime("%d.%m.%Y"),
+            },
+        }
+
     # Подсчет сумм по тратам
-    total_spent = filtered_transactions["Сумма операции с округлением"].sum()
+    total_spent = filtered_transactions["Сумма операции"].replace(",", ".", regex=True).astype(float).abs().sum()
 
     # Формирование результата в формате словаря
     report_data = {
         "category": category,
-        "total_spent": total_spent,
-        "date_range": {"start_date": start_date.strftime("%Y-%m-%d"), "end_date": current_date.strftime("%Y-%m-%d")},
+        "total_spent": round(total_spent, 2),  # Округление до двух знаков после запятой
+        "date_range": {"start_date": start_date.strftime("%d.%m.%Y"), "end_date": current_date.strftime("%d.%m.%Y")},
     }
 
     return report_data
