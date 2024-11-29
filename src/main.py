@@ -102,8 +102,8 @@ def main() -> None:
         input_date: Optional[str] = input(
             "Введите дату для анализа расходов (YYYY-MM-DD), или нажмите Enter для текущей даты: "
         )
-
-        if not input_date.strip():  # Если дата не введена, используем текущую дату
+        # Если дата не введена, используем текущую дату
+        if not input_date.strip():
             input_date = None
             break
 

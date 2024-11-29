@@ -11,5 +11,5 @@ def test_generate_response(mock_excel_data: pd.DataFrame, user_settings: Dict[st
         response: Dict[str, Any] = generate_response("2024-01-15 12:00:00", user_settings)
 
         assert response["greeting"] == "Добрый день"
-        assert len(response["cards"]) == 1  # Должно быть две уникальные карты в тестовых данных
-        assert len(response["top_transactions"]) == 1  # Должно быть две транзакции в топе
+        assert len(response["cards"]) == 1
+        assert len(response["top_transactions"]) == 1

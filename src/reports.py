@@ -28,26 +28,6 @@ def report_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def report_decorator_with_filename(filename: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Декоратор для записи отчета в файл с заданным именем."""
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            result = func(*args, **kwargs)
-            # Запись результата в указанный файл
-            try:
-                with open(filename, "w", encoding="utf-8") as f:
-                    json.dump(result, f, ensure_ascii=False, indent=4)
-                logging.info(f"Отчет сохранен в файл: {filename}")
-            except Exception as e:
-                logging.error(f"Ошибка при сохранении отчета: {e}")
-            return result
-
-        return wrapper
-
-    return decorator
-
-
 @report_decorator
 def spending_by_category(transactions: pd.DataFrame, category: str, date: Optional[str] = None) -> Dict[str, Any]:
     """Возвращает траты по заданной категории за последние три месяца от заданной даты."""
@@ -94,7 +74,7 @@ def spending_by_category(transactions: pd.DataFrame, category: str, date: Option
     # Формирование результата в формате словаря
     report_data = {
         "category": category,
-        "total_spent": round(total_spent, 2),  # Округление до двух знаков после запятой
+        "total_spent": round(total_spent, 2),
         "date_range": {"start_date": start_date.strftime("%d.%m.%Y"), "end_date": current_date.strftime("%d.%m.%Y")},
     }
 
