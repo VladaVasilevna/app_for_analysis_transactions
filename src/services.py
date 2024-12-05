@@ -27,7 +27,7 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
     # Проверка наличия транзакций за указанный месяц
     if not monthly_transactions:
         logging.warning("Нет транзакций за указанный месяц.")
-        return None  # Возвращаем None, если транзакций нет
+        return None
 
     logging.info(f"Округляем транзакции до {limit} в Инвесткопилку")
 
@@ -41,7 +41,7 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
                 transaction_date = datetime.strptime(transaction_date_str, "%d.%m.%Y %H:%M:%S")
             except ValueError:
                 logging.error(f"Некорректный формат даты: {transaction_date_str}")
-                continue  # Пропускаем некорректные даты
+                continue
 
             if month_start <= transaction_date < next_month:
                 rounded_amount = ((transaction_amount // limit) + 1) * limit

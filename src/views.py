@@ -27,38 +27,47 @@ def generate_response(date_str: str, user_settings: Dict[str, Any]) -> Dict[str,
 
         # Обработка данных
         if df is not None:
-            # Фильтрация данных по году и месяцу
+            # Определение начала месяца
+            month_start = current_time.replace(day=1)
+
+            # Фильтрация данных по началу месяца и введенной дате
             filtered_df = df[
-                (pd.to_datetime(df["Дата операции"], dayfirst=True).dt.year == current_time.year)
-                & (pd.to_datetime(df["Дата операции"], dayfirst=True).dt.month == current_time.month)
-            ]
+                (pd.to_datetime(df["Дата операции"], dayfirst=True) >= month_start)
+                & (pd.to_datetime(df["Дата операции"], dayfirst=True) <= current_time)
+            ].copy()
 
             # Проверка наличия транзакций
             if filtered_df.empty:
                 print("Дата не найдена. Введите другую дату.")
                 date_str = input("Введите дату в формате YYYY-MM-DD HH:MM:SS: ")
-                continue  # Запрос новой даты
+                continue
 
             # Обработка карт и кешбэка
             cards_summary = (
                 filtered_df.groupby("Номер карты")
                 .agg(
                     last_digits=("Номер карты", "first"),
-                    total_spent=("Сумма операции", lambda x: round(x.abs().sum(), 2)),
-                    cashback=("Сумма операции", lambda x: round(x.abs().sum() * 0.01, 2)),
+                    total_spent=("Сумма операции", lambda x: round(-x[x < 0].sum(), 2)),
+                    cashback=("Сумма операции", lambda x: round(-x[x < 0].sum() * 0.01, 2)),
                 )
                 .reset_index()
             )
 
             cards_summary = cards_summary[["last_digits", "total_spent", "cashback"]]
 
-            # Топ-5 транзакций с заданием ключей изначально
-            top_transactions = filtered_df.nlargest(5, "Сумма платежа").assign(
+            # Добавляем временную колонку с абсолютными значениями
+            filtered_df.loc[:, "absolute_amount"] = filtered_df["Сумма платежа"].abs()
+
+            # Выбираем топ-5 транзакций по абсолютному значению
+            top_transactions = filtered_df.nlargest(5, "absolute_amount").assign(
                 date=lambda temp_df: pd.to_datetime(temp_df["Дата операции"], dayfirst=True).dt.strftime("%d.%m.%Y"),
-                amount=lambda temp_df: abs(temp_df["Сумма платежа"]),
+                amount=lambda temp_df: temp_df["Сумма платежа"],
                 category=lambda temp_df: temp_df["Категория"],
                 description=lambda temp_df: temp_df["Описание"],
             )[["date", "amount", "category", "description"]]
+
+            # Удаляем временную колонку
+            filtered_df.drop(columns=["absolute_amount"], inplace=True)
 
             # Получение курсов валют и цен акций
             currency_rates = get_currency_rates(user_settings["user_currencies"])

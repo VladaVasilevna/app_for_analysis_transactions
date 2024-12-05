@@ -40,7 +40,7 @@ def main() -> None:
         try:
             # Проверка формата даты и времени
             datetime.strptime(input_datetime, "%Y-%m-%d %H:%M:%S")
-            break  # Выход из цикла, если ввод корректен
+            break
         except ValueError:
             print("Некорректный формат даты и времени. Пожалуйста, попробуйте снова.")
 
@@ -104,8 +104,8 @@ def main() -> None:
     # Получение отчета по категориям
     original_category = None
     while True:
-        category_input: str = input("Введите категорию для анализа расходов: ").strip()  # Вводим категорию
-        category_lower = category_input.lower()  # Преобразуем введённое значение в нижний регистр
+        category_input: str = input("Введите категорию для анализа расходов: ").strip()
+        category_lower = category_input.lower()
 
         # Проверка, что категория не пустая
         if not category_input:
@@ -113,7 +113,7 @@ def main() -> None:
             continue
 
         # Поиск категории в данных транзакций независимо от регистра
-        matching_categories = transactions_data["Категория"].str.lower()  # Преобразуем все категории в нижний регистр
+        matching_categories = transactions_data["Категория"].str.lower()
         if category_lower not in matching_categories.unique():
             print(f"Категория '{category_input}' не найдена. Пожалуйста, введите существующую категорию.")
         else:
