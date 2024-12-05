@@ -45,7 +45,7 @@ def get_currency_rates(user_currencies: List[str]) -> List[Dict[str, Any]]:
             if currency in data["rates"]:
                 rates.append({"currency": currency, "rate": data["rates"][currency]})
     else:
-        logging.error("Ошибка при получении курсов валют.")
+        logging.error("Превышен лимит по API при получении курсов валют.")
 
     return rates
 
@@ -74,6 +74,6 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
                 logging.error(f"Нет данных для акции {stock}.")
 
         except requests.RequestException as e:
-            logging.error(f"Ошибка при получении данных для {stock}: {e}")
+            logging.error(f"Превышен лимит по API при получении данных для {stock}: {e}")
 
     return stock_prices

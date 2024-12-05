@@ -29,13 +29,18 @@ def main() -> None:
     with open(user_settings_path, "r", encoding="utf-8") as f:
         user_settings: Dict[str, Any] = json.load(f)
 
+    print(
+        """Страница 'Главная'
+Получить данные с начала месяца, на который выпадает входящая дата, по входящую дату.\n"""
+    )
+
     # Ввод даты и времени
     while True:
         input_datetime: str = input("Введите дату и время (YYYY-MM-DD HH:MM:SS): ")
         try:
             # Проверка формата даты и времени
             datetime.strptime(input_datetime, "%Y-%m-%d %H:%M:%S")
-            break  # Выход из цикла, если ввод корректен
+            break
         except ValueError:
             print("Некорректный формат даты и времени. Пожалуйста, попробуйте снова.")
 
@@ -44,57 +49,78 @@ def main() -> None:
 
     print(json.dumps(result_json, ensure_ascii=False, indent=4))
 
-    # Ввод месяца и лимита округления для Инвесткопилки
-    while True:
-        input_month: str = input("Введите месяц для расчета (YYYY-MM): ")
-        try:
-            # Проверка формата месяца
-            datetime.strptime(input_month, "%Y-%m")
-            break
-        except ValueError:
-            print("Некорректный формат месяца. Пожалуйста, используйте формат YYYY-MM.")
+    print(
+        """\n'Инвесткопилка'
+Позволяет копить через округление ваших трат.
+Чем активнее расплачиваетесь картой, тем быстрее копятся деньги в копилке.\n"""
+    )
 
-    # Проверка на допустимый лимит
     while True:
         try:
-            limit: int = int(input("Введите лимит округления (10, 50 или 100): "))
+            limit: int = int(input("Введите порог округления (10, 50 или 100): "))
 
             if limit in [10, 50, 100]:
                 break
             else:
-                print("Недопустимый лимит. Пожалуйста, выберите 10, 50 или 100.")
+                print("Недопустимый порог. Пожалуйста, выберите 10, 50 или 100.")
         except ValueError:
-            print("Недопустимый лимит. Пожалуйста, выберите 10, 50 или 100.")
+            print("Недопустимый порог. Пожалуйста, выберите 10, 50 или 100.")
 
-    # Преобразование данных о транзакциях в список словарей
-    transactions = []
-    for index, row in transactions_data.iterrows():
-        transactions.append(
-            {
-                "Дата операции": row["Дата операции"],
-                "Сумма операции": row["Сумма операции"],
-            }
-        )
-
-    # Вычисление суммы отложенной в 'Инвесткопилку'
-    saved_amount = investment_bank(input_month, transactions, limit)
-
-    # Печать результата отложенной суммы
-    print(f"Сумма отложенная в 'Инвесткопилку' за {input_month}: {saved_amount:.2f} ₽")
-
-    # Получение отчета по категориям
     while True:
-        category: str = input("Введите категорию для анализа расходов: ").strip()
+        # Ввод даты для расчета Инвесткопилки
+        input_month: str = input("Введите дату для расчета отложенной суммы (YYYY-MM): ")
+        try:
+            # Проверка формата даты
+            datetime.strptime(input_month, "%Y-%m")
+
+            # Преобразование данных о транзакциях в список словарей
+            transactions = []
+            for index, row in transactions_data.iterrows():
+                transactions.append(
+                    {
+                        "Дата операции": row["Дата операции"],
+                        "Сумма операции": row["Сумма операции"],
+                    }
+                )
+
+            # Вычисление суммы отложенной в 'Инвесткопилку'
+            saved_amount = investment_bank(input_month, transactions, limit)
+
+            if saved_amount is None:
+                print("Дата не найдена. Введите другую дату.")
+                continue
+
+            # Печать результата отложенной суммы
+            print(f"Сумма отложенная в 'Инвесткопилку' за {input_month}: {saved_amount:.2f} ₽")
+            break
+
+        except ValueError:
+            print("Некорректный формат даты. Пожалуйста, используйте формат YYYY-MM.")
+
+    print(
+        """\n'Траты по категории'
+Получить данные о тратах по заданной категории за последние три месяца (от переданной даты).\n"""
+    )
+    # Получение отчета по категориям
+    original_category = None
+    while True:
+        category_input: str = input("Введите категорию для анализа расходов: ").strip()
+        category_lower = category_input.lower()
 
         # Проверка, что категория не пустая
-        if not category:
+        if not category_input:
             print("Категория не может быть пустой. Пожалуйста, введите корректную категорию.")
             continue
 
-        # Проверка, существует ли категория в данных транзакций
-        if category not in transactions_data["Категория"].unique():
-            print(f"Категория '{category}' не найдена. Пожалуйста, введите существующую категорию.")
+        # Поиск категории в данных транзакций независимо от регистра
+        matching_categories = transactions_data["Категория"].str.lower()
+        if category_lower not in matching_categories.unique():
+            print(f"Категория '{category_input}' не найдена. Пожалуйста, введите существующую категорию.")
         else:
+            # Получаем оригинальное название категории для вывода
+            original_category = transactions_data.loc[
+                matching_categories[matching_categories == category_lower].index[0], "Категория"
+            ]
             break
 
     # Ввод даты для анализа расходов
@@ -115,11 +141,10 @@ def main() -> None:
             print("Некорректный формат даты. Пожалуйста, используйте формат YYYY-MM-DD.")
 
     try:
-
-        report = spending_by_category(transactions_data, category, input_date)
+        report = spending_by_category(transactions_data, original_category, input_date)
         print(json.dumps(report, ensure_ascii=False, indent=4))
     except Exception as e:
-        print(f"Ошибка при получении отчета по категории '{category}': {e}")
+        print(f"Ошибка при получении отчета по категории '{original_category}': {e}")
 
 
 if __name__ == "__main__":
