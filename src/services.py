@@ -43,9 +43,18 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
                 logging.error(f"Некорректный формат даты: {transaction_date_str}")
                 continue
 
-            if month_start <= transaction_date < next_month:
-                rounded_amount = ((transaction_amount // limit) + 1) * limit
-                saved_amount = rounded_amount - transaction_amount
+            if month_start <= transaction_date < next_month and transaction_amount < 0:
+                abs_transaction_amount = abs(transaction_amount)
+                remainder = abs_transaction_amount % limit
+
+                if remainder == 0:
+                    continue  # Если остаток 0, не округляем
+
+                # Определяем округленное значение
+                rounded_amount = (abs_transaction_amount // limit + 1) * limit
+
+                # Вычисляем сумму, которую нужно отложить
+                saved_amount = rounded_amount + transaction_amount
                 total_saved += saved_amount
 
     return total_saved

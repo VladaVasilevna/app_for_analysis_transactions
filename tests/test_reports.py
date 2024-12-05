@@ -1,8 +1,63 @@
-from datetime import datetime, timedelta
 from typing import Any, Callable, Dict
 from unittest import mock
 
+import pandas as pd
+import pytest
+
 from src.reports import report_decorator, spending_by_category
+
+# Пример данных для тестирования
+transactions_data: pd.DataFrame = pd.DataFrame(
+    {
+        "Дата операции": [
+            "10.01.2024 12:00:00",
+            "15.01.2024 12:00:00",
+            "10.02.2024 12:00:00",
+            "20.02.2024 12:00:00",
+            "01.03.2024 12:00:00",
+        ],
+        "Категория": ["Еда", "Транспорт", "Еда", "Развлечения", "Еда"],
+        "Сумма операции": ["-100.50", "-50.00", "-200.75", "-150.25", "-300.00"],
+    }
+)
+
+# Преобразуем даты в нужный формат
+transactions_data["Дата операции"] = pd.to_datetime(transactions_data["Дата операции"], dayfirst=True)
+
+
+@pytest.mark.parametrize(
+    "category, date, expected_total",
+    [
+        ("Развлечения", "2024-02-15", 0.0),  # Нет расходов по категории Развлечения до указанной даты
+        ("Транспорт", "2024-03-01", 50.0),  # Расходы по категории Транспорт до указанной даты
+        ("Еда", "2024-02-15", 301.25),  # Расходы по категории Еда до указанной даты
+    ],
+)
+def test_spending_by_category(mocker: Any, category: str, date: str, expected_total: float) -> None:
+    """Тестирование функции spending_by_category с параметризацией."""
+
+    # Мокаем метод logging.info для подавления вывода во время тестирования
+    mocker.patch("logging.info")
+
+    result = spending_by_category(transactions_data.copy(), category, date)  # Используем копию данных
+
+    assert result["category"] == category
+    assert result["total_spent"] == expected_total  # Проверяем общую сумму расходов
+
+
+@pytest.mark.parametrize(
+    "category, date",
+    [
+        ("Еда", "некорректная дата"),  # Проверка на некорректную дату
+    ],
+)
+def test_spending_by_category_invalid_date(mocker: Any, category: str, date: str) -> None:
+    """Тестирование функции spending_by_category при некорректной дате."""
+
+    mocker.patch("logging.info")
+
+    with pytest.raises(ValueError):
+        spending_by_category(transactions_data.copy(), category, date)
 
 
 @mock.patch("builtins.open", new_callable=mock.mock_open)
@@ -28,34 +83,3 @@ def test_report_decorator_success(
 
     # Проверяем, что логирование произошло
     mock_logging_info.assert_called_once()
-
-
-def test_spending_by_category_with_transactions(transactions: Any) -> None:
-    """Тест на наличие транзакций в указанной категории."""
-    result: Dict[str, Any] = spending_by_category(transactions, category="Продукты")
-
-    assert result["category"] == "Продукты"
-
-    # Приводим к типу float для корректного сравнения
-    assert float(result["total_spent"]) == 3500.75
-
-    assert result["date_range"]["start_date"] == (datetime.now() - timedelta(days=90)).strftime("%d.%m.%Y")
-    assert result["date_range"]["end_date"] == datetime.now().strftime("%d.%m.%Y")
-
-
-def test_spending_by_category_no_transactions(transactions: Any) -> None:
-    """Тест на отсутствие транзакций в указанной категории."""
-    result: Dict[str, Any] = spending_by_category(transactions, category="Транспорт")
-
-    assert result["category"] == "Транспорт"
-    assert result["total_spent"] == 0.0
-    assert result["date_range"]["start_date"] == (datetime.now() - timedelta(days=90)).strftime("%d.%m.%Y")
-    assert result["date_range"]["end_date"] == datetime.now().strftime("%d.%m.%Y")
-
-
-def test_spending_by_category_without_date(transactions: Any) -> None:
-    """Тест на использование текущей даты при отсутствии переданной даты."""
-    result: Dict[str, Any] = spending_by_category(transactions, category="Продукты")
-
-    assert result["category"] == "Продукты"
-    assert result["total_spent"] == 3500.75
