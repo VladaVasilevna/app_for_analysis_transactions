@@ -36,7 +36,7 @@ def test_generate_response() -> None:
         card_5678 = next((card for card in cards if card["last_digits"] == "5678"), None)
 
         assert card_1234 is not None
-        assert card_1234["total_spent"] == 300.0  # общая сумма расходов по карте (100 + 200)
+        assert card_1234["total_spent"] == 300.0  # Общая сумма расходов по карте (100 + 200)
         assert card_1234["cashback"] == 3.0
 
         assert card_5678 is not None

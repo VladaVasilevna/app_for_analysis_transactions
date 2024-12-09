@@ -28,7 +28,7 @@ def generate_response(date_str: str, user_settings: Dict[str, Any]) -> Dict[str,
         # Обработка данных
         if df is not None:
             # Определение начала месяца
-            month_start = current_time.replace(day=1)
+            month_start = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
             # Фильтрация данных по началу месяца и введенной дате
             filtered_df = df[
